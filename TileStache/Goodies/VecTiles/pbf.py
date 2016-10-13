@@ -13,7 +13,7 @@ padding = 0
 def decode(file):
     tile = file.read()
     data = mapbox_vector_tile.decode(tile)
-    return data # print data or write to file?
+    return data
 
 
 def encode(file, features, coord, layer_name=''):
@@ -27,7 +27,7 @@ def encode(file, features, coord, layer_name=''):
 
 def merge(file, feature_layers, coord):
     '''
-    Retrieve a list of mapbox vector tile responses and merge them into one.
+    Retrieve a list of protobuf vector tile responses and merge them into one.
 
         get_tiles() retrieves data and performs basic integrity checks.
     '''

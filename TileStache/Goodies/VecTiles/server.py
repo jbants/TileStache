@@ -31,9 +31,9 @@ tolerances = [6378137 * 2 * pi / (2 ** (zoom + 8)) for zoom in range(20)]
 
 class Provider:
     ''' VecTiles provider for PostGIS data sources.
-    
+
         Parameters:
-        
+
           dbinfo:
             Required dictionary of Postgres connection parameters. Should
             include some combination of 'host', 'user', 'password', and 'database'.
