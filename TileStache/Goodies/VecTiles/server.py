@@ -8,8 +8,16 @@ For a more general implementation, try the Vector provider:
     http://tilestache.org/doc/#vector-provider
 '''
 from math import pi
-from urlparse import urljoin, urlparse
-from urllib import urlopen
+try:
+    from urllib.parse import urljoin, urlparse
+except ImportError:
+    # Python 2
+    from urlparse import urljoin, urlparse
+try:
+    from urllib.request import urlopen
+except ImportError:
+    # Python 2
+    from urllib import urlopen
 from os.path import exists
 
 try:
@@ -17,7 +25,7 @@ try:
     from psycopg2 import connect
     from psycopg2.extensions import TransactionRollbackError
 
-except ImportError, err:
+except ImportError as err:
     # Still possible to build the documentation without psycopg2
 
     def connect(*args, **kwargs):
@@ -182,7 +190,10 @@ class Provider:
         
         if query not in self.columns:
             self.columns[query] = query_columns(self.dbinfo, self.srid, query, bounds)
-        
+
+        if not self.columns[query]:
+            return EmptyResponse(bounds)
+
         tolerance = self.simplify * tolerances[coord.zoom] if coord.zoom < self.simplify_until else None
         
         return Response(self.dbinfo, self.srid, query, self.columns[query], bounds, tolerance, coord.zoom, self.clip, coord, self.layer.name(), self.padding)
@@ -428,7 +439,6 @@ def get_features(dbinfo, query, n_try=1):
             db.execute(query)
         except TransactionRollbackError:
             if n_try >= 5:
-                print 'TransactionRollbackError occurred 5 times'
                 raise
             else:
                 return get_features(dbinfo, query, n_try=n_try + 1)

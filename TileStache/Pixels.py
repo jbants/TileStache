@@ -23,7 +23,11 @@ in the lookup table. If the final byte is 0xFFFF, there is no transparency.
 """
 from struct import unpack, pack
 from math import sqrt, ceil, log
-from urllib import urlopen
+try:
+    from urllib.request import urlopen
+except ImportError:
+    # Python 2
+    from urllib import urlopen
 from operator import add
 
 try:
@@ -101,7 +105,13 @@ def apply_palette(image, palette, t_index):
 
         indexes.append(mapping[(r, g, b)])
 
-    output = Image.frombytes('P', image.size, ''.join(indexes))
+    if hasattr(Image, 'frombytes'):
+        # Image.fromstring is deprecated past Pillow 2.0
+        output = Image.frombytes('P', image.size, ''.join(indexes))
+    else:
+        # PIL still uses Image.fromstring
+        output = Image.fromstring('P', image.size, ''.join(indexes))
+ 
     bits = int(ceil(log(len(palette)) / log(2)))
 
     palette += [(0, 0, 0)] * (256 - len(palette))

@@ -1,13 +1,14 @@
-from unittest import TestCase
+from __future__ import print_function
+
+import os
+from unittest import TestCase, skipIf
 from collections import namedtuple
 from math import hypot
 import json
 
 from osgeo import ogr, osr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon, asShape
-
 import mapbox_vector_tile
-# import mercantile
 
 from TileStache.Goodies.VecTiles import pbf
 
@@ -20,7 +21,8 @@ from . import utils
 def get_topo_transform(topojson):
     '''
     '''
-    def xform((x, y)):
+    def xform(xy):
+        x, y = xy
         lon = topojson['transform']['scale'][0] * x + topojson['transform']['translate'][0]
         lat = topojson['transform']['scale'][1] * y + topojson['transform']['translate'][1]
         
@@ -95,13 +97,11 @@ def decoded_pbf_asshape(feature, extent, srid=4326):
         3: "Polygon"
     }
     if feature['type'] in (1, 2):
-        coords = [
-            trans_coord(3857, srid, *coord2merc(*g, extent=extent)) for g in feature['geometry']]
+        coords = [trans_coord(3857, srid, *coord2merc(x, y, extent=extent))
+            for (x, y) in feature['geometry']]
     elif feature['type'] == 3:
-        print feature['geometry']
-        coords = [
-            [trans_coord(3857, srid, *coord2merc(*g, extent=extent)) for g in feature['geometry'][0]]
-        ]
+        coords = [[trans_coord(3857, srid, *coord2merc(x, y, extent=extent))
+            for (x, y) in feature['geometry'][0]]]
     geoint = {
         'type': TYPES_MAP.get(feature['type']),
         'coordinates': coords,
@@ -147,6 +147,7 @@ class PostGISVectorTestBase(object):
         self.conn.ExecuteSQL('DROP TABLE if exists %s' % (self.testTableName,))
 
 
+@skipIf('NO_DATABASE' in os.environ, "No database tests requested")
 class VectorProviderTest(PostGISVectorTestBase, TestCase):
     '''Various vectiles tests on top of PostGIS'''
 
@@ -236,7 +237,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         # northwest quadrant should return San Francisco and Lima
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "json", 0, 0, 1)
-        geojson_result = json.loads(tile_content)
+        geojson_result = json.loads(tile_content.decode('utf8'))
 
         self.assertTrue(tile_mimetype.endswith('/json'))
         self.assertEqual(geojson_result['type'], 'FeatureCollection')
@@ -262,7 +263,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         # northeast quadrant should return Berlin
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "json", 0, 1, 1)
-        geojson_result = json.loads(tile_content)
+        geojson_result = json.loads(tile_content.decode('utf8'))
 
         self.assertTrue(tile_mimetype.endswith('/json'))
         self.assertEqual(geojson_result['type'], 'FeatureCollection')
@@ -283,7 +284,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "json", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        geojson_result = json.loads(tile_content)
+        geojson_result = json.loads(tile_content.decode('utf8'))
         west_hemisphere_geometry = asShape(geojson_result['features'][0]['geometry'])
         expected_geometry = LineString([(-180, 32), (180, 32)])
         self.assertTrue(expected_geometry.almost_equals(west_hemisphere_geometry))
@@ -306,7 +307,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "json", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        geojson_result = json.loads(tile_content)
+        geojson_result = json.loads(tile_content.decode('utf8'))
         
         result_geom = asShape(geojson_result['features'][0]['geometry'])
         expected_geom = Polygon( [(-180, -85.05), (180, -85.05), (180, 85.05), (-180, 85.05), (-180, -85.05)])
@@ -347,7 +348,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_multi", "json", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        geojson_result = json.loads(tile_content)
+        geojson_result = json.loads(tile_content.decode('utf8'))
         
         feature1, feature2 = geojson_result['vectile_test'], geojson_result['vectile_copy']
         self.assertEqual(feature1['type'], 'FeatureCollection')
@@ -383,10 +384,10 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         # northwest quadrant should return San Francisco and Lima
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "topojson", 0, 0, 1)
-        topojson_result = json.loads(tile_content)
+        topojson_result = json.loads(tile_content.decode('utf8'))
 
         self.assertTrue(tile_mimetype.endswith('/json'))
-        print topojson_result
+        print(topojson_result)
         self.assertEqual(topojson_result['type'], 'Topology')
         self.assertEqual(len(topojson_result['objects']['vectile']['geometries']), 2)
 
@@ -405,7 +406,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
 
             elif feature['properties']['name'] == 'Lima':
                 cities.append(feature['properties']['name'])
-                print feature['coordinates']
+                print(feature['coordinates'])
                 self.assertTrue(hypot(point_lima.x - lon, point_lima.y - lat) < 1)
 
         self.assertTrue('San Francisco' in cities)
@@ -415,7 +416,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         # northeast quadrant should return Berlin
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "topojson", 0, 1, 1)
-        topojson_result = json.loads(tile_content)
+        topojson_result = json.loads(tile_content.decode('utf8'))
 
         self.assertTrue(tile_mimetype.endswith('/json'))
         self.assertEqual(topojson_result['type'], 'Topology')
@@ -436,7 +437,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "topojson", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        topojson_result = json.loads(tile_content)
+        topojson_result = json.loads(tile_content.decode('utf8'))
         topojson_xform = get_topo_transform(topojson_result)
         
         parts = [topojson_result['arcs'][arc] for arc in topojson_result['objects']['vectile']['geometries'][0]['arcs']]
@@ -468,7 +469,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_test", "topojson", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        topojson_result = json.loads(tile_content)
+        topojson_result = json.loads(tile_content.decode('utf8'))
         topojson_xform = get_topo_transform(topojson_result)
         
         parts = [topojson_result['arcs'][arc[0]] for arc in topojson_result['objects']['vectile']['geometries'][0]['arcs']]
@@ -514,7 +515,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
 
         tile_mimetype, tile_content = utils.request(self.config_file_content, "vectile_multi", "topojson", 0, 0, 0)
         self.assertTrue(tile_mimetype.endswith('/json'))
-        topojson_result = json.loads(tile_content)
+        topojson_result = json.loads(tile_content.decode('utf8'))
         
         self.assertEqual(topojson_result['type'], 'Topology')
         self.assertEqual(topojson_result['objects']['vectile_test']['type'], 'GeometryCollection')
@@ -594,7 +595,7 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         '''Create a line that goes from west to east (clip on) (pbf)'''
         self.defineGeometry('LINESTRING')
 
-        geom = LineString([(-180, 32), (180, 32)])
+        geom = LineString([(-179, 32), (179, 32)])
 
         self.insertTestRow(geom.wkt)
 
@@ -608,13 +609,10 @@ class VectorProviderTest(PostGISVectorTestBase, TestCase):
         extent = tile_bounds_mercator(0, 0, 0)
 
         west_hemisphere_geometry = decoded_pbf_asshape(layer_result['features'][0], extent)
-        # order of points returned are different
-        expected_geometry = LineString([(180, 32), (-180, 32)])
-        print expected_geometry
-        print west_hemisphere_geometry
+        expected_geometry = LineString([(-179, 32), (179, 32)])
         for returned, expected in zip(west_hemisphere_geometry.coords, expected_geometry.coords):
-            self.assertTrue(round(returned[0]) == expected[0])
-            self.assertTrue(round(returned[1]) == expected[1])
+            self.assertEqual(round(returned[0]), expected[0])
+            self.assertEqual(round(returned[1]), expected[1])
 
     def test_polygon_pbf(self):
         '''

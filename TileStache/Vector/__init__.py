@@ -154,7 +154,11 @@ you can save yourself a world of trouble by using this definition:
 """
 
 from re import compile
-from urlparse import urlparse, urljoin
+try:
+    from urllib.parse import urljoin, urlparse
+except ImportError:
+    # Python 2
+    from urlparse import urljoin, urlparse
 
 try:
     from json import JSONEncoder, loads as json_loads
@@ -163,9 +167,9 @@ except ImportError:
 
 from osgeo import ogr, osr
 
-from TileStache.Core import KnownUnknown
-from TileStache.Geography import getProjectionByName
-from Arc import reserialize_to_arc, pyamf_classes
+from ..Core import KnownUnknown
+from ..Geography import getProjectionByName
+from .Arc import reserialize_to_arc, pyamf_classes
 
 class VectorResponse:
     """ Wrapper class for Vector response that makes it behave like a PIL.Image object.
@@ -220,9 +224,10 @@ class VectorResponse:
     
             for atom in encoded:
                 if float_pat.match(atom):
-                    out.write(('%%.%if' % self.precision) % float(atom))
+                    piece = ('%%.%if' % self.precision) % float(atom)
                 else:
-                    out.write(atom)
+                    piece = atom
+                out.write(piece.encode('utf8'))
         
         elif format in ('GeoBSON', 'ArcBSON'):
             import bson
@@ -323,10 +328,16 @@ def _feature_properties(feature, layer_definition, whitelist=None, skip_empty_fi
         OFTInteger (0), OFTIntegerList (1), OFTReal (2), OFTRealList (3),
         OFTString (4), OFTStringList (5), OFTWideString (6), OFTWideStringList (7),
         OFTBinary (8), OFTDate (9), OFTTime (10), OFTDateTime (11).
+
+        Extra OGR types for GDAL 2.x:
+        OFTInteger64 (12), OFTInteger64List (13)
     """
     properties = {}
-    okay_types = ogr.OFTInteger, ogr.OFTReal, ogr.OFTString, ogr.OFTWideString, ogr.OFTDate, ogr.OFTTime, ogr.OFTDateTime
-    
+    okay_types = [ogr.OFTInteger, ogr.OFTReal, ogr.OFTString,
+                  ogr.OFTWideString, ogr.OFTDate, ogr.OFTTime, ogr.OFTDateTime]
+    if hasattr(ogr, 'OFTInteger64'):
+        okay_types.extend([ogr.OFTInteger64, ogr.OFTInteger64List])
+
     for index in range(layer_definition.GetFieldCount()):
         field_definition = layer_definition.GetFieldDefn(index)
         field_type = field_definition.GetType()
