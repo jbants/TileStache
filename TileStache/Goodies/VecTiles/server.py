@@ -33,8 +33,11 @@ except ImportError as err:
         raise err
 
 import json
+from functools import partial
+import pyproj
 from json import loads as json_loads
 from shapely.geometry import shape
+from shapely.ops import transform
 from osgeo import ogr, osr
 
 from . import mvt, geojson, topojson, pbf
@@ -477,24 +480,18 @@ class GeoJsonResponse:
         for index, feature in enumerate(feature_collection):
             shapely_geom = shape(feature['geometry'])
 
+            project = partial(
+                pyproj.transform,
+                pyproj.Proj(init='epsg:4326'),  # source coordinate system
+                pyproj.Proj(init='epsg:3857'))  # destination coordinate system
+
+            shapely_geom_web_mercator = transform(project, shapely_geom)
+            
             prop = feature['properties']
-            wkb = shapely_geom
+            wkb = shapely_geom_web_mercator
             fid = index
 
             features.append((wkb, prop, fid))
-
-        # with open(self.file) as data_file:
-        #     data = json.load(data_file)
-        #     feature_collection = data['features']
-        #
-        #     features = []
-        #
-        #     for index, feature in enumerate(feature_collection):
-        #         prop = feature['properties']
-        #         wkb = shape(feature['geometry']).wkb
-        #         fid = index
-        #
-        #         features.append((wkb, prop, fid))
 
         if format == 'MVT':
             mvt.encode(out, features)
