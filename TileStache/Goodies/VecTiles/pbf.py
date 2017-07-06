@@ -13,16 +13,18 @@ def decode(file):
     return data
 
 
-def encode(file, features, coord, layer_name=''):
+def encode(file, features, bounds, layer_name=''):
     layers = []
 
     layers.append(get_feature_layer(layer_name, features))
-
-    data = mapbox_vector_tile.encode(layers)
+    if bounds:
+        data = mapbox_vector_tile.encode(layers, quantize_bounds=bounds)
+    else:
+        data = mapbox_vector_tile.encode(layers)
     file.write(data)
 
 
-def merge(file, feature_layers, coord):
+def merge(file, feature_layers, bounds):
     '''
     Retrieve a list of protobuf vector tile responses and merge them into one.
 

@@ -323,6 +323,10 @@ class GeoJsonProvider:
         ''' Render a single tile, return a Response instance.
         '''
 
+        ll = self.layer.projection.coordinateProj(coord.down())
+        ur = self.layer.projection.coordinateProj(coord.right())
+        bounds = ll.x, ll.y, ur.x, ur.y
+
         layer, ds = _open_layer(self.driver, self.parameters, self.layer.config.dirpath)
         features = _get_features(coord, self.properties, self.layer.projection, layer, self.clipped, self.projected,
                                  self.spacing, self.id_property, self.skip_empty_fields)
@@ -338,7 +342,7 @@ class GeoJsonProvider:
         else:
             response['crs'] = {'srid': 4326, 'wkid': 4326}
 
-        return GeoJsonResponse(response, self.verbose, coord, self.precision, self.layer.name())
+        return GeoJsonResponse(response, self.verbose, coord, bounds, self.precision, self.layer.name())
 
     def getTypeByExtension(self, extension):
         ''' Get mime-type and format by file extension, one of "mvt", "json", "topojson" or "pbf".
@@ -440,7 +444,7 @@ class Response:
 
         elif format == 'PBF':
             pbf.encode(
-                out, features, self.coord, layer_name=self.layer_name)
+                out, features, self.bounds, layer_name=self.layer_name)
 
         else:
             raise ValueError(format)
@@ -450,7 +454,7 @@ class GeoJsonResponse:
     '''
     '''
 
-    def __init__(self, content, verbose, coord, precision=6, layer_name=''):
+    def __init__(self, content, verbose, coord, bounds, precision=6, layer_name=''):
         ''' Create a new response object from a geojson file.
 
             bounds argument is a 4-tuple with (xmin, ymin, xmax, ymax).
@@ -459,6 +463,7 @@ class GeoJsonResponse:
         self.verbose = verbose
         self.precision = precision
         self.coord = coord
+        self.bounds = bounds
         self.layer_name = layer_name
 
     def save(self, out, format):
@@ -470,8 +475,10 @@ class GeoJsonResponse:
         features = []
 
         for index, feature in enumerate(feature_collection):
+            shapely_geom = shape(feature['geometry'])
+
             prop = feature['properties']
-            wkb = shape(feature['geometry']).wkb
+            wkb = shapely_geom
             fid = index
 
             features.append((wkb, prop, fid))
@@ -502,7 +509,7 @@ class GeoJsonResponse:
 
         elif format == 'PBF':
             pbf.encode(
-                out, features, self.coord, layer_name=self.layer_name)
+                out, features, self.bounds, layer_name=self.layer_name)
 
         else:
             raise ValueError(format)
