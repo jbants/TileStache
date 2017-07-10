@@ -447,7 +447,7 @@ class Response:
 
         elif format == 'PBF':
             pbf.encode(
-                out, features, self.bounds, layer_name=self.layer_name)
+                out, features=features, bounds=None, layer_name=self.layer_name) # tile is quantized in postgis query
 
         else:
             raise ValueError(format)
