@@ -132,8 +132,8 @@ def getProviderByName(name):
 
     # Temp loading of geojson for rendering to pbf
     elif name.lower() == 'temp_vector':
-        from .Goodies import VecTiles
-        return VecTiles.GeoJsonProvider
+        from .Goodies import GeoJsonTiles
+        return GeoJsonTiles.GeoJsonProvider
 
     elif name.lower() == 'mbtiles':
         from . import MBTiles
