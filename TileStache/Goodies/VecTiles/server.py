@@ -523,7 +523,17 @@ def build_query(srid, subquery, subcolumns, bounds, tolerance, is_geo, is_clippe
               FROM (
                 %(subquery)s
                 ) AS q
-              WHERE ST_IsValid(q.__geometry__)
-                AND q.__geometry__ && %(bbox)s
+              WHERE q.__geometry__ && %(bbox)s
                 AND ST_Intersects(q.__geometry__, %(bbox)s)''' \
            % locals()
+
+    #
+    # return '''SELECT %(columns)s,
+    #                  ST_AsBinary(%(geom)s) AS __geometry__
+    #           FROM (
+    #             %(subquery)s
+    #             ) AS q
+    #           WHERE ST_IsValid(q.__geometry__)
+    #             AND q.__geometry__ && %(bbox)s
+    #             AND ST_Intersects(q.__geometry__, %(bbox)s)''' \
+    #        % locals()
